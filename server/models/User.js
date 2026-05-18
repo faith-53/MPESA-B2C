@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const userSchema = new mongoose.Schema({
   firstName: {
@@ -199,5 +200,7 @@ userSchema.methods.isIPAllowed = function(ip) {
   // Check if IP is in whitelist
   return this.ipWhitelist.includes(ip);
 };
+
+userSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('User', userSchema);

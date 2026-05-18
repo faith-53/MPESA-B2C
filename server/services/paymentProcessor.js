@@ -21,7 +21,7 @@ class PaymentProcessor {
 
   /**
    * Start processing payments for a specific batch
-   * @param {string} batchId - Upload batch _id
+   * @param {string} batchId - Custom batch identifier
    * @param {Object} user - User initiating the process
    * @returns {Promise<Object>} Processing result
    */
@@ -32,8 +32,8 @@ class PaymentProcessor {
         throw new Error('Payment processing is already in progress');
       }
 
-      // Get the batch by _id
-      const batch = await UploadBatch.findById(batchId).populate('uploadedBy');
+      // Get the batch by custom batchId
+      const batch = await UploadBatch.findOne({ batchId: batchId }).populate('uploadedBy');
       if (!batch) {
         throw new Error('Upload batch not found');
       }
@@ -55,13 +55,13 @@ class PaymentProcessor {
 
       // Initialize processing
       this.isProcessing = true;
-      this.processingBatch = batch._id;
+      this.processingBatch = batch.batchId;
       this.processingStats = {
         totalProcessed: 0,
         successful: 0,
         failed: 0,
         startTime: new Date(),
-        currentBatch: batch._id.toString()
+        currentBatch: batch.batchId
       };
 
       // Update batch status
@@ -74,7 +74,7 @@ class PaymentProcessor {
         user: user._id,
         userEmail: user.email,
         action: 'process_payments',
-        description: `Started processing batch: ${batch._id}`,
+        description: `Started processing batch: ${batch.batchId}`,
         resourceType: 'batch',
         resourceId: batch._id.toString(),
         ipAddress: '127.0.0.1',
@@ -83,7 +83,7 @@ class PaymentProcessor {
         success: true,
         severity: 'medium',
         metadata: {
-          batchId: batch._id.toString(),
+          batchId: batch.batchId,
           totalPayments: pendingPayments.length,
           batchSize: this.batchSize
         }
@@ -113,7 +113,7 @@ class PaymentProcessor {
         user: user._id,
         userEmail: user.email,
         action: 'process_payments',
-        description: `Completed processing batch: ${batch._id}`,
+        description: `Completed processing batch: ${batch.batchId}`,
         resourceType: 'batch',
         resourceId: batch._id.toString(),
         ipAddress: '127.0.0.1',
@@ -122,7 +122,7 @@ class PaymentProcessor {
         success: true,
         severity: 'medium',
         metadata: {
-          batchId: batch._id.toString(),
+          batchId: batch.batchId,
           results,
           processingTime: Date.now() - this.processingStats.startTime.getTime()
         }
@@ -134,7 +134,7 @@ class PaymentProcessor {
 
       return {
         success: true,
-        batchId: batch._id.toString(),
+        batchId: batch.batchId,
         results,
         processingTime: Date.now() - this.processingStats.startTime.getTime()
       };
@@ -149,7 +149,7 @@ class PaymentProcessor {
       // Update batch status to failed if we have a batch
       if (batchId) {
         try {
-          const batch = await UploadBatch.findById(batchId);
+          const batch = await UploadBatch.findOne({ batchId: batchId });
           if (batch && batch.status === 'processing') {
             await batch.updateStatus('failed', {
               errorMessage: error.message
@@ -385,41 +385,208 @@ class PaymentProcessor {
   }
 
   /**
-   * Retry failed payments
-   * @param {string} batchId - Upload batch _id
+   * Retry failed payments for a batch (including partial batches)
+   * This method ONLY retries failed payments, never retries successful ones
+   * @param {string} batchId - Custom batch identifier
    * @param {Object} user - User initiating the retry
    * @returns {Promise<Object>} Retry result
    */
   async retryFailedPayments(batchId, user) {
     try {
-      const batch = await UploadBatch.findById(batchId);
+      // Get the batch by custom batchId
+      const batch = await UploadBatch.findOne({ batchId: batchId });
       if (!batch) {
         throw new Error('Upload batch not found');
       }
 
-      // Get failed payments that can be retried
-      const failedPayments = await Payment.find({
-        uploadBatch: batch._id,
-        status: 'failed'
-      }).where('retryCount').lt(this.maxRetries);
-
-      if (failedPayments.length === 0) {
-        throw new Error('No failed payments available for retry');
+      // Check if batch can be retried (partial or failed status)
+      if (!['partial', 'failed'].includes(batch.status)) {
+        throw new Error(`Batch cannot be retried. Current status: ${batch.status}`);
       }
 
-      console.log(`Retrying ${failedPayments.length} failed payments for batch ${batch._id}`);
+      // Get failed payments that can be retried (retryCount < maxRetries)
+      const failedPayments = await Payment.find({
+        uploadBatch: batch._id,
+        status: 'failed',
+        retryCount: { $lt: this.maxRetries }
+      }).sort({ rowNumber: 1 });
 
-      // Reset payment status to pending and increment retry count
+      if (failedPayments.length === 0) {
+        throw new Error('No failed payments available for retry (all have reached max retry attempts)');
+      }
+
+      // Get successful payments count to ensure we're not retrying them
+      const successfulPayments = await Payment.countDocuments({
+        uploadBatch: batch._id,
+        status: 'completed'
+      });
+
+      console.log(`Retrying ${failedPayments.length} failed payments for batch ${batch.batchId}`);
+      console.log(`Batch has ${successfulPayments} successful payments that will not be retried`);
+
+      // Log the retry operation
+      await AuditLog.logAction({
+        user: user._id,
+        userEmail: user.email,
+        action: 'retry_payments',
+        description: `Retrying ${failedPayments.length} failed payments for batch: ${batch.batchId}`,
+        resourceType: 'batch',
+        resourceId: batch._id.toString(),
+        ipAddress: '127.0.0.1',
+        source: 'system',
+        userAgent: 'payment-processor',
+        success: true,
+        severity: 'medium',
+        metadata: {
+          batchId: batch.batchId,
+          failedCount: failedPayments.length,
+          successfulCount: successfulPayments,
+          maxRetries: this.maxRetries
+        }
+      });
+
+      // Reset payment status to pending for retry and increment retry count
       for (const payment of failedPayments) {
         await payment.updateStatus('pending');
         await payment.incrementRetry();
+        console.log(`Reset payment ${payment.internalReference} for retry (attempt ${payment.retryCount + 1}/${this.maxRetries})`);
       }
 
-      // Process the retried payments
-      return await this.processBatch(batchId, user);
+      // IMPORTANT: Update batch status to 'processing' for the retry operation
+      // This ensures the batch.canProcess() check passes (it requires 'validated' or 'failed' status)
+      await batch.updateStatus('processing', {
+        processingStartedAt: new Date(),
+        errorMessage: null // Clear any previous error message
+      });
+
+      // Process only the retried payments (the pending ones we just reset)
+      // We need to get the pending payments for this batch (which are now the retried ones)
+      const pendingPayments = await Payment.find({
+        uploadBatch: batch._id,
+        status: 'pending'
+      }).sort({ rowNumber: 1 });
+
+      if (pendingPayments.length === 0) {
+        throw new Error('No pending payments found after resetting failed payments');
+      }
+
+      console.log(`Processing ${pendingPayments.length} retried payments`);
+
+      // Process payments in batches
+      const results = await this.processPaymentsInBatches(pendingPayments, batch, user);
+
+      // Update batch final status after retry
+      // Get updated counts for the entire batch
+      const totalSuccessful = await Payment.countDocuments({
+        uploadBatch: batch._id,
+        status: 'completed'
+      });
+      
+      const totalFailed = await Payment.countDocuments({
+        uploadBatch: batch._id,
+        status: 'failed'
+      });
+      
+      const totalProcessed = totalSuccessful + totalFailed;
+      
+      // Calculate successful amount
+      const successfulAmounts = await Payment.aggregate([
+        {
+          $match: {
+            uploadBatch: batch._id,
+            status: 'completed'
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: { $toDouble: '$amountDecrypted' } }
+          }
+        }
+      ]);
+      
+      const totalSuccessfulAmount = successfulAmounts[0]?.total || 0;
+
+      // Determine final status after retry
+      let finalStatus;
+      if (totalFailed === 0) {
+        finalStatus = 'completed';
+      } else if (totalSuccessful === 0) {
+        finalStatus = 'failed';
+      } else {
+        finalStatus = 'partial';
+      }
+
+      await batch.updateStatus(finalStatus, {
+        processingCompletedAt: new Date(),
+        processedRows: totalProcessed,
+        successfulRows: totalSuccessful,
+        failedRows: totalFailed,
+        processedAmount: totalSuccessfulAmount,
+        successfulAmount: totalSuccessfulAmount
+      });
+
+      // Log retry completion
+      await AuditLog.logAction({
+        user: user._id,
+        userEmail: user.email,
+        action: 'retry_payments',
+        description: `Completed retry for batch: ${batch.batchId}`,
+        resourceType: 'batch',
+        resourceId: batch._id.toString(),
+        ipAddress: '127.0.0.1',
+        source: 'system',
+        userAgent: 'payment-processor',
+        success: true,
+        severity: 'medium',
+        metadata: {
+          batchId: batch.batchId,
+          retryResults: results,
+          finalStatus,
+          totalSuccessful,
+          totalFailed,
+          totalSuccessfulAmount
+        }
+      });
+
+      // Reset processing state
+      this.isProcessing = false;
+      this.processingBatch = null;
+
+      return {
+        success: true,
+        batchId: batch.batchId,
+        results: {
+          ...results,
+          totalSuccessfulInBatch: totalSuccessful,
+          totalFailedInBatch: totalFailed,
+          finalStatus
+        },
+        processingTime: Date.now() - this.processingStats.startTime.getTime()
+      };
 
     } catch (error) {
       console.error('Retry failed payments error:', error);
+      
+      // Reset processing state
+      this.isProcessing = false;
+      this.processingBatch = null;
+
+      // Update batch status if needed
+      if (batchId) {
+        try {
+          const batch = await UploadBatch.findOne({ batchId: batchId });
+          if (batch && batch.status === 'processing') {
+            await batch.updateStatus('partial', { // Keep as partial, not failed
+              errorMessage: error.message,
+              processingCompletedAt: new Date()
+            });
+          }
+        } catch (updateError) {
+          console.error('Failed to update batch status:', updateError);
+        }
+      }
+
       throw error;
     }
   }
@@ -451,7 +618,7 @@ class PaymentProcessor {
     try {
       // Update batch status
       if (this.processingBatch) {
-        const batch = await UploadBatch.findById(this.processingBatch);
+        const batch = await UploadBatch.findOne({ batchId: this.processingBatch });
         if (batch) {
           await batch.updateStatus('cancelled');
         }

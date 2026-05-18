@@ -41,7 +41,7 @@ This is a complete, production-ready MPESA B2C bulk payments system that allows 
 1. **Clone and install dependencies**:
    ```bash
    git clone <repository-url>
-   cd mpesa-b2c-bulk-payments
+   cd mpesa-b2c
    npm run install-all
    ```
 
@@ -49,12 +49,9 @@ This is a complete, production-ready MPESA B2C bulk payments system that allows 
    ```bash
    # Server environment
    cd server
-   cp env.example .env
-   # Update .env with your actual values
    
    # Client environment  
    cd ../client
-   cp env.example .env
    # Update .env with your API URL
    ```
 
@@ -72,10 +69,6 @@ The application will be available at:
 ### Docker Deployment
 
 1. **Using Docker Compose**:
-   ```bash
-   # Copy environment file
-   cp docker/env.example .env
-   # Update .env with production values
    
    # Start services
    docker-compose up -d
@@ -89,15 +82,6 @@ The application will be available at:
    - EC2 key pair
 
 2. **Deploy infrastructure**:
-   ```bash
-   cd deploy
-   # Update parameters file with your values
-   cp parameters-production.json parameters-production-actual.json
-   # Edit parameters-production-actual.json
-   
-   # Deploy
-   ./deploy.sh production us-east-1
-   ```
 
 ## Configuration
 
@@ -116,7 +100,6 @@ JWT_EXPIRE=7d
 MPESA_CONSUMER_KEY=your-mpesa-consumer-key
 MPESA_CONSUMER_SECRET=your-mpesa-consumer-secret  
 MPESA_SHORTCODE=your-business-shortcode
-MPESA_PASSKEY=your-mpesa-passkey
 MPESA_ENVIRONMENT=sandbox|production
 
 # Encryption (32 characters)

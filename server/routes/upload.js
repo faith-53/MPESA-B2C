@@ -408,6 +408,7 @@ router.delete('/batches/:batchId', protect, asyncHandler(async (req, res) => {
     success: true,
     severity: 'medium',
     metadata: {
+      _id: batch._id,
       batchId: batch.batchId,
       originalFileName: batch.originalFileName,
       totalRows: batch.totalRows,

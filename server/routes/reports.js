@@ -255,6 +255,7 @@ router.get('/batch-summary', protect, requirePermission('canViewReports'), [
       .sort({ createdAt: -1 });
 
     const reportData = batches.map(batch => ({
+      _id: batch._id,
       batchId: batch.batchId,
       originalFileName: batch.originalFileName,
       status: batch.status,
@@ -370,18 +371,27 @@ router.get('/dashboard', protect, asyncHandler(async (req, res) => {
     startDate.setDate(startDate.getDate() - parseInt(days));
 
     // Build base query
-    const baseQuery = {
+    const batchQuery = {
+      createdAt: { $gte: startDate }
+    };
+
+    const paymentQuery = {
       createdAt: { $gte: startDate }
     };
 
     // Filter by user if not admin
     if (req.user.role !== 'admin') {
-      baseQuery.uploadedBy = req.user._id;
+      batchQuery.uploadedBy = req.user._id;
+
+      // ⚠️ IMPORTANT: payments need to be filtered via batch
+      paymentQuery.batchId = {
+        $in: await UploadBatch.find({ uploadedBy: req.user._id }).distinct('batchId')
+      };
     }
 
     // Get batch statistics
     const batchStats = await UploadBatch.aggregate([
-      { $match: baseQuery },
+      { $match: batchQuery },
       {
         $group: {
           _id: '$status',
@@ -396,7 +406,7 @@ router.get('/dashboard', protect, asyncHandler(async (req, res) => {
 
     // Get payment statistics
     const paymentStats = await Payment.aggregate([
-      { $match: baseQuery },
+      { $match: paymentQuery },
       {
         $group: {
           _id: '$status',
@@ -409,11 +419,11 @@ router.get('/dashboard', protect, asyncHandler(async (req, res) => {
     const dailyStats = await UploadBatch.getDailyStats(parseInt(days));
 
     // Recent activity
-    const recentBatches = await UploadBatch.find(baseQuery)
+    const recentBatches = await UploadBatch.find(batchQuery)
       .populate('uploadedBy', 'firstName lastName')
       .sort({ createdAt: -1 })
       .limit(5)
-      .select('batchId originalFileName status totalRows successfulRows totalAmount createdAt uploadedBy');
+      .select('_id batchId originalFileName status totalRows successfulRows totalAmount createdAt uploadedBy');
 
     const dashboard = {
       period: `${days} days`,
@@ -421,6 +431,7 @@ router.get('/dashboard', protect, asyncHandler(async (req, res) => {
       paymentStatistics: paymentStats,
       dailyStatistics: dailyStats,
       recentActivity: recentBatches.map(batch => ({
+        _id: batch._id,
         batchId: batch.batchId,
         fileName: batch.originalFileName,
         status: batch.status,

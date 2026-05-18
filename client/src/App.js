@@ -69,7 +69,11 @@ function App() {
                   <Route path="reports" element={<Reports />} />
                   
                   {/* User Management (Admin only) */}
-                  <Route path="users" element={<Users />} />
+                  <Route path="users" element={
+                    <ProtectedRoute requiredRole="admin">
+                      <Users />
+                    </ProtectedRoute>
+                  } />
                   
                   {/* Profile */}
                   <Route path="profile" element={<Profile />} />

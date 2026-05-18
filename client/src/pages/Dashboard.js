@@ -1,15 +1,7 @@
 import React from 'react';
 import { useQuery } from 'react-query';
-import { 
-  DocumentArrowUpIcon,
-  FolderIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  CurrencyDollarIcon,
-} from '@heroicons/react/24/outline';
+import { DocumentArrowUpIcon, FolderIcon, CheckCircleIcon, XCircleIcon, ClockIcon, CurrencyDollarIcon,} from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
-
 import { reportsService, formatCurrency, formatRelativeTime } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -17,8 +9,8 @@ import LoadingSpinner from '../components/LoadingSpinner';
 const Dashboard = () => {
   const { user } = useAuth();
 
-  // Fetch dashboard data
-  const { data: dashboardData, isLoading, error } = useQuery(
+  // Fetch dashboard data - API now returns data directly
+  const { data: dashboard, isLoading, error } = useQuery(
     ['dashboard', { days: 7 }],
     () => reportsService.getDashboard({ days: 7 }),
     {
@@ -43,8 +35,8 @@ const Dashboard = () => {
     );
   }
 
-  const dashboard = dashboardData?.data || {};
-  const { batchStatistics = [], paymentStatistics = [], recentActivity = [] } = dashboard;
+  // Access data directly - no more response.data.data nesting
+  const { batchStatistics = [], paymentStatistics = [], recentActivity = [] } = dashboard?.data || {};
 
   // Calculate totals
   const totalBatches = batchStatistics.reduce((sum, stat) => sum + stat.count, 0);

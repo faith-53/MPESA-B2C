@@ -145,7 +145,9 @@ class MPESAService {
         response.ResponseCode
       );
     } catch (error) {
-      throw this.handleError(error, "B2C payment failed");
+      throw new Error(
+        `B2C payment failed: ${error.response?.data?.errorMessage || error.message}`
+      );
     }
   }
 

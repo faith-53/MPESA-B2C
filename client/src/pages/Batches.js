@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { uploadService, paymentService, formatCurrency, formatRelativeTime } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import BatchDetails from './BatchDetails';
@@ -19,11 +20,12 @@ const Batches = () => {
   const fetchBatches = async () => {
     try {
       setLoading(true);
-      const response = await uploadService.getBatches();
-      setBatches(response.data?.batches || []);
+      // API returns data directly, not response.data
+      const batchesData = await uploadService.getBatches();
+      setBatches(batchesData?.data?.batches || []);
     } catch (err) {
       setError('Failed to fetch batches');
-      setBatches([]); // Ensure batches is always an array
+      setBatches([]);
     } finally {
       setLoading(false);
     }
@@ -36,12 +38,12 @@ const Batches = () => {
       setProcessing(true);
       setProcessingBatchId(batchId);
       
-      const response = await paymentService.processBatch(batchId);
+      const result = await paymentService.processBatch(batchId);
       
-      alert(`Batch processed successfully! ${response.data.successfulPayments} payments completed.`);
+      alert(`Batch processed successfully! ${result.successfulPayments} payments completed.`);
       await fetchBatches();
     } catch (err) {
-      alert(`Processing failed: ${err.response?.data?.message || 'Unknown error'}`);
+      alert(`Processing failed: ${err.message || 'Unknown error'}`);
     } finally {
       setProcessing(false);
       setProcessingBatchId(null);
@@ -55,12 +57,12 @@ const Batches = () => {
       setProcessing(true);
       setProcessingBatchId(batchId);
       
-      const response = await paymentService.retryBatch(batchId);
+      const result = await paymentService.retryBatch(batchId);
       
-      alert(`Retry completed! ${response.data.successfulPayments} payments retried.`);
+      alert(`Retry completed! ${result.successfulPayments} payments retried.`);
       await fetchBatches();
     } catch (err) {
-      alert(`Retry failed: ${err.response?.data?.message || 'Unknown error'}`);
+      alert(`Retry failed: ${err.message || 'Unknown error'}`);
     } finally {
       setProcessing(false);
       setProcessingBatchId(null);
@@ -194,7 +196,7 @@ const Batches = () => {
                             {processing && processingBatchId === batch.batchId ? 'Processing...' : 'Process'}
                           </button>
                         )}
-                        {batch.status === 'completed' && batch.failedRows > 0 && (
+                        {(batch.status === 'completed' || batch.status === 'partial') && batch.failedRows > 0 && (
                           <button
                             onClick={() => handleRetryBatch(batch.batchId)}
                             disabled={processing}
@@ -213,10 +215,14 @@ const Batches = () => {
         </div>
       </div>
 
-      {selectedBatch && (
+      {showBatchDetails && selectedBatch && (
         <BatchDetails
           batch={selectedBatch}
-          onClose={() => setShowBatchDetails(false)}
+          onClose={() => {
+            setShowBatchDetails(false);
+            setSelectedBatch(null);
+          }}
+          onRefresh={fetchBatches}
         />
       )}
     </div>

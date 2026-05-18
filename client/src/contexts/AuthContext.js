@@ -203,7 +203,8 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (profileData) => {
     try {
       const response = await authService.updateProfile(profileData);
-      const { user } = response.data;
+      const payload = response?.data || response;
+      const user = payload.user || payload;
       
       dispatch({
         type: 'UPDATE_USER',

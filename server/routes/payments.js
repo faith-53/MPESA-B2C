@@ -92,8 +92,8 @@ router.get('/batch/:batchId', protect, asyncHandler(async (req, res) => {
   const { batchId } = req.params;
   const { page = 1, limit = 50, status } = req.query;
 
-  // Get the batch by _id
-  const batch = await UploadBatch.findById(batchId);
+  // Get the batch by custom batchId
+  const batch = await UploadBatch.findOne({ batchId: batchId });
   if (!batch) {
     throw new CustomError('Upload batch not found', 404);
   }
@@ -139,7 +139,7 @@ router.get('/batch/:batchId', protect, asyncHandler(async (req, res) => {
 // @access  Private
 router.get('/:paymentId', protect, asyncHandler(async (req, res) => {
   const payment = await Payment.findById(req.params.paymentId)
-    .populate('uploadBatch', '_id originalFileName uploadedBy')
+    .populate('uploadBatch', '_id batchId originalFileName uploadedBy')
     .populate('uploadedBy', 'firstName lastName email')
     .populate('processedBy', 'firstName lastName email');
 
