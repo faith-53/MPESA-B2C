@@ -36,10 +36,10 @@ const Sidebar = ({ navigation, userNavigation, currentPath, mobile }) => {
 
       {/* Navigation */}
       <nav className="flex flex-1 flex-col">
-        <ul role="list" className="flex flex-1 flex-col gap-y-7">
+        <ul className="flex flex-1 flex-col gap-y-7">
           {/* Main navigation */}
           <li>
-            <ul role="list" className="-mx-2 space-y-1">
+            <ul className="-mx-2 space-y-1">
               {navigation.map((item) => {
                 const isActive = currentPath === item.href || 
                   (item.href !== '/dashboard' && currentPath.startsWith(item.href));
@@ -96,7 +96,7 @@ const Sidebar = ({ navigation, userNavigation, currentPath, mobile }) => {
             </div>
 
             {/* User navigation */}
-            <ul role="list" className="-mx-2 space-y-1">
+            <ul className="-mx-2 space-y-1">
               {userNavigation.map((item) => {
                 const isActive = currentPath === item.href;
                 

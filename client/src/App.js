@@ -11,7 +11,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
-import LoadingSpinner from './components/LoadingSpinner';
+//import LoadingSpinner from './components/LoadingSpinner';
 
 // Pages
 import Login from './pages/Login';

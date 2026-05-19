@@ -30,7 +30,7 @@ const Login = () => {
   // Clear errors when component mounts
   useEffect(() => {
     clearError();
-  }, []);
+  }, [clearError]);
 
   const onSubmit = async (data) => {
     try {

@@ -8,10 +8,7 @@ import {
   ChartBarIcon,
   UsersIcon,
   UserCircleIcon,
-  Bars3Icon,
   XMarkIcon,
-  CogIcon,
-  BellIcon,
 } from '@heroicons/react/24/outline';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -32,7 +29,7 @@ const userNavigation = [
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, hasPermission, hasRole } = useAuth();
+  const { hasPermission, hasRole } = useAuth();
   const location = useLocation();
 
   // Filter navigation items based on permissions

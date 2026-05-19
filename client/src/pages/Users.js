@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import { usersService, formatDate } from '../services/api';
@@ -26,7 +26,7 @@ const Users = () => {
   const [resetModal, setResetModal] = useState(null);
   const [newPassword, setNewPassword] = useState('');
 
-  const fetchUsers = async (page = 1) => {
+  const fetchUsers = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       const params = { page, limit: 20 };
@@ -43,9 +43,11 @@ const Users = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.search, filters.role, filters.isActive]); // Add dependencies
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const openCreate = () => {
     setEditingUser(null);
@@ -126,6 +128,10 @@ const Users = () => {
     }
   };
 
+  const applyFilters = () => {
+    fetchUsers(1);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -150,7 +156,7 @@ const Users = () => {
             <option value="true">Active</option>
             <option value="false">Inactive</option>
           </select>
-          <button type="button" onClick={() => fetchUsers(1)} className="px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-md hover:bg-gray-900">Apply filters</button>
+          <button type="button" onClick={applyFilters} className="px-4 py-2 text-sm font-medium text-white bg-gray-800 rounded-md hover:bg-gray-900">Apply filters</button>
         </div>
       </div>
 
