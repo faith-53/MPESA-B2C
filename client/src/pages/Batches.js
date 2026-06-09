@@ -201,7 +201,7 @@ const Batches = () => {
                             disabled={processing}
                             className="text-orange-600 hover:text-orange-900 disabled:opacity-50"
                           >
-                            {processing && processingBatchId === batch.batchId ? 'Retrying...' : 'Retry Failed'}
+                            {processing && processingBatchId === batch.batchId ? 'Retrying...' : 'Retry'}
                           </button>
                         )}
                       </div>
