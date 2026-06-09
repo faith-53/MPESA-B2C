@@ -28,9 +28,9 @@ const Login = () => {
   }, [isAuthenticated, navigate, location]);
 
   // Clear errors when component mounts
-  useEffect(() => {
-    clearError();
-  }, [clearError]);
+  //useEffect(() => {
+    //clearError();
+  //}, [clearError]);
 
   const onSubmit = async (data) => {
     try {

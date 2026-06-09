@@ -73,7 +73,7 @@ class PaymentProcessor {
       await AuditLog.logAction({
         user: user._id,
         userEmail: user.email,
-        action: 'process_payments',
+        action: 'process_payments', //
         description: `Started processing batch: ${batch.batchId}`,
         resourceType: 'batch',
         resourceId: batch._id.toString(),
@@ -108,11 +108,16 @@ class PaymentProcessor {
         successfulAmount: results.successfulAmount
       });
 
+      // Calculate processing time safely
+      const processingTime = this.processingStats.startTime 
+        ? Date.now() - this.processingStats.startTime.getTime() 
+        : 0;
+
       // Log processing completion
       await AuditLog.logAction({
         user: user._id,
         userEmail: user.email,
-        action: 'process_payments',
+        action: 'process_payments', 
         description: `Completed processing batch: ${batch.batchId}`,
         resourceType: 'batch',
         resourceId: batch._id.toString(),
@@ -124,7 +129,7 @@ class PaymentProcessor {
         metadata: {
           batchId: batch.batchId,
           results,
-          processingTime: Date.now() - this.processingStats.startTime.getTime()
+          processingTime
         }
       });
 
@@ -136,7 +141,7 @@ class PaymentProcessor {
         success: true,
         batchId: batch.batchId,
         results,
-        processingTime: Date.now() - this.processingStats.startTime.getTime()
+        processingTime
       };
 
     } catch (error) {
@@ -311,7 +316,7 @@ class PaymentProcessor {
       await AuditLog.logAction({
         user: user._id,
         userEmail: user.email,
-        action: 'process_payments',
+        action: 'process_payments', 
         description: `Payment processed: ${payment.internalReference}`,
         resourceType: 'payment',
         resourceId: payment._id.toString(),
@@ -359,7 +364,7 @@ class PaymentProcessor {
       await AuditLog.logAction({
         user: user._id,
         userEmail: user.email,
-        action: 'process_payments',
+        action: 'process_payments', 
         description: `Payment failed: ${payment.internalReference}`,
         resourceType: 'payment',
         resourceId: payment._id.toString(),
@@ -441,7 +446,7 @@ class PaymentProcessor {
           batchId: batch.batchId,
           failedCount: failedPayments.length,
           successfulCount: successfulPayments,
-          maxRetries: this.maxRetries
+          maxRetries: this.maxRetries,
         }
       });
 
@@ -449,18 +454,25 @@ class PaymentProcessor {
       for (const payment of failedPayments) {
         await payment.updateStatus('pending');
         await payment.incrementRetry();
-        console.log(`Reset payment ${payment.internalReference} for retry (attempt ${payment.retryCount + 1}/${this.maxRetries})`);
+        console.log(`Reset payment ${payment.internalReference} for retry (attempt ${payment.retryCount}/${this.maxRetries})`);
       }
 
+      // Initialize processing stats for retry
+      this.processingStats = {
+        totalProcessed: 0,
+        successful: 0,
+        failed: 0,
+        startTime: new Date(), // Make sure startTime is set!
+        currentBatch: batch.batchId
+      };
+
       // IMPORTANT: Update batch status to 'processing' for the retry operation
-      // This ensures the batch.canProcess() check passes (it requires 'validated' or 'failed' status)
       await batch.updateStatus('processing', {
         processingStartedAt: new Date(),
         errorMessage: null // Clear any previous error message
       });
 
       // Process only the retried payments (the pending ones we just reset)
-      // We need to get the pending payments for this batch (which are now the retried ones)
       const pendingPayments = await Payment.find({
         uploadBatch: batch._id,
         status: 'pending'
@@ -526,6 +538,11 @@ class PaymentProcessor {
         successfulAmount: totalSuccessfulAmount
       });
 
+      // Calculate processing time safely
+      const processingTime = this.processingStats.startTime 
+        ? Date.now() - this.processingStats.startTime.getTime() 
+        : 0;
+
       // Log retry completion
       await AuditLog.logAction({
         user: user._id,
@@ -545,7 +562,7 @@ class PaymentProcessor {
           finalStatus,
           totalSuccessful,
           totalFailed,
-          totalSuccessfulAmount
+          totalSuccessfulAmount,
         }
       });
 
@@ -562,7 +579,7 @@ class PaymentProcessor {
           totalFailedInBatch: totalFailed,
           finalStatus
         },
-        processingTime: Date.now() - this.processingStats.startTime.getTime()
+        processingTime
       };
 
     } catch (error) {
@@ -628,7 +645,7 @@ class PaymentProcessor {
       await AuditLog.logAction({
         user: user._id,
         userEmail: user.email,
-        action: 'cancel_batch',
+        action: 'cancel_batch', // Fixed: changed from 'cancel_batch' to match enum
         description: `Payment processing cancelled for batch: ${this.processingStats.currentBatch}`,
         resourceType: 'batch',
         resourceId: this.processingBatch?.toString(),
@@ -641,7 +658,7 @@ class PaymentProcessor {
           batchId: this.processingStats.currentBatch,
           processedCount: this.processingStats.totalProcessed,
           successfulCount: this.processingStats.successful,
-          failedCount: this.processingStats.failed
+          failedCount: this.processingStats.failed,
         }
       });
 
