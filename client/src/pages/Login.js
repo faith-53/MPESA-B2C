@@ -9,7 +9,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isAuthenticated, loading, error, clearError } = useAuth();
+  const { login, isAuthenticated, loading, error } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
