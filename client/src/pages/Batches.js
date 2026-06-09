@@ -195,7 +195,7 @@ const Batches = () => {
                             {processing && processingBatchId === batch.batchId ? 'Processing...' : 'Process'}
                           </button>
                         )}
-                        {(batch.status === 'completed' || batch.status === 'partial') && batch.failedRows > 0 && (
+                        {batch.failedRows > 0 && (
                           <button
                             onClick={() => handleRetryBatch(batch.batchId)}
                             disabled={processing}
