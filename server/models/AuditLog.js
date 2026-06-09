@@ -26,6 +26,7 @@ const auditLogSchema = new mongoose.Schema({
       'upload_file',
       'validate_batch',
       'process_payments',
+      'retry_payments',
       'cancel_batch',
       'export_report',
       'create_user',
