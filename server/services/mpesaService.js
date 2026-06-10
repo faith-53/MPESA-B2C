@@ -117,7 +117,7 @@ class MPESAService {
         PartyB: phoneNumber,
         Remarks: description.substring(0, 100),
         QueueTimeOutURL: `${process.env.BASE_URL}/api/payments/timeout`,
-        ResultURL: `${process.env.BASE_URL}/api/payments/result`,
+        ResultURL: `${process.env.BASE_URL}/api/payments/callback`,
         Occasion: internalReference.substring(0, 100),
       };
 
@@ -267,9 +267,9 @@ class MPESAService {
   }
 
   validateAmount(amount) {
-    return Number.isInteger(amount) && amount >= 1 && amount <= 150000;
-    amount = Math.round(amount);
-  }
+  const roundedAmount = Math.round(amount);
+  return Number.isInteger(roundedAmount) && roundedAmount >= 1 && roundedAmount <= 150000;
+}
 
   // =============================
   //  Error Handler

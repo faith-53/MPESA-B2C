@@ -30,43 +30,59 @@ const Batches = () => {
     }
   };
 
-  const handleProcessBatch = async (batchId) => {
-    if (!window.confirm('Are you sure you want to process this batch?')) return;
+ const handleProcessBatch = async (batchId) => {
+  if (!window.confirm('Are you sure you want to process this batch?')) return;
 
-    try {
-      setProcessing(true);
-      setProcessingBatchId(batchId);
-      
-      const result = await paymentService.processBatch(batchId);
-      
-      alert(`Batch processed successfully! ${result.successfulPayments} payments completed.`);
-      await fetchBatches();
-    } catch (err) {
-      alert(`Processing failed: ${err.message || 'Unknown error'}`);
-    } finally {
-      setProcessing(false);
-      setProcessingBatchId(null);
-    }
-  };
+  try {
+    setProcessing(true);
+    setProcessingBatchId(batchId);
+    
+    const result = await paymentService.processBatch(batchId);
+    console.log('Process batch response:', result);
+    
+    // The API returns data in result.data.results
+    // Or result.data depending on the response structure
+    const successfulCount = result?.data?.results?.successful || 
+                           result?.results?.successful || 
+                           result?.data?.successfulPayments ||
+                           result?.successfulPayments ||
+                           0;
+    
+    alert(`Batch processed successfully! ${successfulCount} payments completed.`);
+    await fetchBatches();
+  } catch (err) {
+    alert(`Processing failed: ${err.message || 'Unknown error'}`);
+  } finally {
+    setProcessing(false);
+    setProcessingBatchId(null);
+  }
+};
 
-  const handleRetryBatch = async (batchId) => {
-    if (!window.confirm('Are you sure you want to retry failed payments?')) return;
+const handleRetryBatch = async (batchId) => {
+  if (!window.confirm('Are you sure you want to retry failed payments?')) return;
 
-    try {
-      setProcessing(true);
-      setProcessingBatchId(batchId);
-      
-      const result = await paymentService.retryBatch(batchId);
-      
-      alert(`Retry completed! ${result.successfulPayments} payments retried.`);
-      await fetchBatches();
-    } catch (err) {
-      alert(`Retry failed: ${err.message || 'Unknown error'}`);
-    } finally {
-      setProcessing(false);
-      setProcessingBatchId(null);
-    }
-  };
+  try {
+    setProcessing(true);
+    setProcessingBatchId(batchId);
+    
+    const result = await paymentService.retryBatch(batchId);
+    
+    // The API returns data in result.data.results
+    const successfulCount = result?.data?.results?.successful || 
+                           result?.results?.successful || 
+                           result?.data?.successfulPayments ||
+                           result?.successfulPayments ||
+                           0;
+    
+    alert(`Retry completed! ${successfulCount} payments retried.`);
+    await fetchBatches();
+  } catch (err) {
+    alert(`Retry failed: ${err.message || 'Unknown error'}`);
+  } finally {
+    setProcessing(false);
+    setProcessingBatchId(null);
+  }
+};
 
   const handleViewBatch = async (batch) => {
     setSelectedBatch(batch);
