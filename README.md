@@ -34,7 +34,7 @@ A secure, standalone web-based application for managing MPESA B2C bulk payments 
    npm run install-all
    ```
 
-3. Set up environment variables (see `.env.example` files)
+3. Set up environment variables 
 
 4. Start the development server:
    ```bash
@@ -137,11 +137,6 @@ The application is designed for AWS deployment with:
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details
-
 ## Support
 
 For support and questions, please contact the development team.
