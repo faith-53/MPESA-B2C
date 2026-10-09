@@ -23,10 +23,35 @@ const { protect } = require('./middleware/auth');
 
 const app = express();
 
-// Trust proxy (important for rate limiting behind reverse proxy)
 app.set('trust proxy', 1);
 
-// Security middleware
+// CORS configuration — must run before rate limiting and other middleware
+const corsOrigin = process.env.CORS_ORIGIN
+  ?.trim()
+  .replace(/\/$/, '');
+
+console.log('CORS_ORIGIN loaded:', JSON.stringify(corsOrigin));
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || origin === corsOrigin) {
+      return callback(null, true);
+    }
+
+    console.error(
+      `CORS blocked origin: ${origin}. Expected: ${corsOrigin}`
+    );
+
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+
+// Security middleware — now runs after CORS
 app.use(helmet());
 app.use(mongoSanitize());
 app.use(xss());
@@ -34,23 +59,17 @@ app.use(hpp());
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  windowMs:
+    parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
   message: {
     error: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/', limiter);
 
-// CORS configuration
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN,
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
+app.use('/api/', limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
